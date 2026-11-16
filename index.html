@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#617549">
+		<title>熄屏养成</title>
+		<style>html,body{margin:0;padding:0;border:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;background:#C5D5C1;touch-action:none;}body{position:fixed;inset:0;color:#334737;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;}#canvas{position:fixed!important;left:0;top:0;margin:0!important;padding:0!important;border:0!important;display:block!important;width:100vw!important;height:100dvh!important;touch-action:none;outline:0;}#status{position:fixed;inset:0;z-index:20;background:#d8dcc7;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:18px;visibility:hidden;}#status-splash{display:none;}#load-title{font-size:23px;font-weight:600;letter-spacing:5px;color:#465c3d;}#load-hint{font-size:13px;color:#74816a;}#status-progress{display:none;appearance:none;width:min(320px,65vw);height:7px;border:0;border-radius:5px;overflow:hidden;background:#c4cbb4;}#status-progress::-webkit-progress-bar{background:#c4cbb4;}#status-progress::-webkit-progress-value{background:#617549;border-radius:5px;}#status-progress::-moz-progress-bar{background:#617549;border-radius:5px;}#status-notice{display:none;max-width:min(560px,80vw);padding:18px 22px;border:1px solid #ab6b5760;border-radius:14px;background:#fff8e8;color:#874c3f;font-size:13px;line-height:1.7;text-align:center;}#safe-area-probe{position:fixed;visibility:hidden;pointer-events:none;width:0;height:0;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);}</style>
+		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
+<link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
+
+	</head>
+	<body>
+<div id="safe-area-probe" aria-hidden="true"></div>
+		<canvas id="canvas">
+			浏览器未提供画布支持，请使用新版 Safari。
+		</canvas>
+
+		<noscript>
+			请开启 JavaScript 后重新打开。
+		</noscript>
+
+		<div id="status">
+			<div id="load-title">熄屏养成</div>
+			<div id="load-hint">正在准备小院，请稍候</div>
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		<script>
+(function(){
+ const canvas=document.getElementById('canvas');
+ const probe=document.getElementById('safe-area-probe');
+ let scheduled=false;
+ function fit(){
+  scheduled=false;
+  const vv=window.visualViewport;
+  const width=Math.max(1,vv?vv.width:innerWidth);
+  const height=Math.max(1,vv?vv.height:innerHeight);
+  const scale=Math.min(2,Math.max(1,window.devicePixelRatio||1));
+  const backingWidth=Math.max(1,Math.floor(width*scale));
+  const backingHeight=Math.max(1,Math.floor(height*scale));
+  // Policy 0 leaves CSS sizing to this shell; Godot detects backing-size changes.
+  if(canvas.width!==backingWidth)canvas.width=backingWidth;
+  if(canvas.height!==backingHeight)canvas.height=backingHeight;
+  canvas.style.setProperty('width',width+'px','important');
+  canvas.style.setProperty('height',height+'px','important');
+  canvas.style.setProperty('left',(vv?vv.offsetLeft:0)+'px','important');
+  canvas.style.setProperty('top',(vv?vv.offsetTop:0)+'px','important');
+  const c=getComputedStyle(probe);
+  window.__SAFE_INSETS__={top:parseFloat(c.paddingTop)||0,right:parseFloat(c.paddingRight)||0,bottom:parseFloat(c.paddingBottom)||0,left:parseFloat(c.paddingLeft)||0};
+  window.__FORMAL_VIEWPORT__={width,height,offsetLeft:vv?vv.offsetLeft:0,offsetTop:vv?vv.offsetTop:0,dpr:scale,backingWidth,backingHeight};
+ }
+ function requestFit(){if(!scheduled){scheduled=true;requestAnimationFrame(fit);}}
+ addEventListener('resize',requestFit,{passive:true});
+ addEventListener('orientationchange',requestFit,{passive:true});
+ addEventListener('pageshow',requestFit,{passive:true});
+ if(window.visualViewport){visualViewport.addEventListener('resize',requestFit,{passive:true});visualViewport.addEventListener('scroll',requestFit,{passive:true});}
+ for(const event of ['gesturestart','gesturechange'])canvas.addEventListener(event,e=>e.preventDefault(),{passive:false});
+ fit();
+})();
+</script>
+
+<script>
+// Only lifecycle time anchors live here; progress, XP and furniture remain in Godot user://.
+(function(){
+ const prefix='xiping-godot-away-v1-';
+ const activeKey=prefix+'active';
+ let openId=null;
+ let visibleStarted=document.hidden?null:Date.now();
+ window.__FORMAL_VISIBLE_STARTED_MS__=visibleStarted;
+ function read(key){try{return JSON.parse(localStorage.getItem(key)||'null');}catch(_){return null;}}
+ function write(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch(_){}}
+ function hidden(){
+  const g=window.__FORMAL_GODOT__;
+  if(!g||!g.state)return;
+  if(openId)return;
+  const mode=g.demo?'demo':'real';
+  const key=prefix+mode;
+  const prior=read(activeKey),ongoing=read(key);
+  if(prior&&prior.mode===mode&&ongoing&&ongoing.id===prior.id&&ongoing.end_ms===null){openId=ongoing.id;return;}
+  const id=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random());
+  const visit=g.state.visit_session&&typeof g.state.visit_session==='object'?JSON.parse(JSON.stringify(g.state.visit_session)):{};
+  const a={id,start_ms:Date.now(),end_ms:null,mul:g.demo?60:1,stage:g.state.arc.stage,can_advance:!g.state.arc.active&&g.state.arc.stage<6,mechanism_version:1,mode,visit_session:visit};
+  visibleStarted=null;window.__FORMAL_VISIBLE_STARTED_MS__=null;
+  write(key,a);write(activeKey,{mode,id});openId=id;
+ }
+ function visible(){
+  if(visibleStarted===null)visibleStarted=Date.now();
+  window.__FORMAL_VISIBLE_STARTED_MS__=visibleStarted;
+  const active=read(activeKey);
+  if(active){const key=prefix+active.mode,a=read(key);if(a&&a.id===active.id&&a.end_ms===null){a.end_ms=Date.now();write(key,a);}}
+  openId=null;
+ }
+ window.__formalRecordHidden=hidden;
+ window.__formalRecordVisible=visible;
+ document.addEventListener('visibilitychange',()=>document.hidden?hidden():visible(),{capture:true});
+ window.addEventListener('pagehide',hidden,{capture:true});
+ window.addEventListener('pageshow',()=>{if(!document.hidden)visible();},{capture:true});
+ if(!document.hidden)visible();
+})();
+</script>
+
+<script src="index.js"></script>
+		<script>
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":4206448,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+// The formal game owns its visual viewport and a separate IDBFS mount.
+GODOT_CONFIG.canvasResizePolicy = 0;
+GODOT_CONFIG.persistentPaths = ['/userfs/xiping-yangcheng-godot'];
+const GODOT_THREADS_ENABLED = false;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occurred.');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+
+	if (missing.length !== 0) {
+		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+			let serviceWorkerRegistrationPromise;
+			try {
+				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
+			} catch (err) {
+				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
+			}
+			// There's a chance that installing the service worker would fix the issue
+			Promise.race([
+				serviceWorkerRegistrationPromise.then((registration) => {
+					if (registration != null) {
+						return Promise.reject(new Error('Service worker already exists.'));
+					}
+					return registration;
+				}).then(() => engine.installServiceWorker()),
+				// For some reason, `getRegistration()` can stall
+				new Promise((resolve) => {
+					setTimeout(() => resolve(), 2000);
+				}),
+			]).then(() => {
+				// Reload if there was no error.
+				window.location.reload();
+			}).catch((err) => {
+				console.error('Error while registering service worker:', err);
+			});
+		} else {
+			// Display the message as usual
+			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+			displayFailureNotice(missingMsg + missing.join('\n'));
+		}
+	} else {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(() => {
+			setStatusMode('hidden');
+		}, displayFailureNotice);
+	}
+}());
+		</script>
+	</body>
+</html>
+
